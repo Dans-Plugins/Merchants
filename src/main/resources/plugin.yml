@@ -1,0 +1,6 @@
+name: Merchants
+version: '${version}'
+main: com.dansplugins.merchants.Merchants
+api-version: '1.16'
+authors: ["Daniel McCoy Stephenson"]
+description: NPC shopkeepers who buy and sell goods for Medieval Economy coin
