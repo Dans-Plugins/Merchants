@@ -10,7 +10,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**Pre-implementation.** No code yet. The scope of the first release is defined in [MVP.md](MVP.md).
+**Pre-implementation.** The repository holds a buildable, empty Spigot plugin skeleton; none of the planned features are implemented yet. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
@@ -26,6 +26,16 @@ Not yet released. Once there is a build, installation will follow the usual DPC 
 ### Required Companion Plugins
 
 - [Medieval Economy](https://github.com/Dans-Plugins/Medieval-Economy) — supplies the currency merchants trade in.
+
+### Building from source
+
+Building requires JDK 21 (the bytecode targets Java 17). Use the committed Gradle wrapper:
+
+```bash
+./gradlew clean build
+```
+
+This compiles the plugin, runs the unit tests and writes the jar to `build/libs/Merchants-<version>.jar`.
 
 ## Usage
 
@@ -45,7 +55,7 @@ Please fill out a bug report [here](https://github.com/Dans-Plugins/Merchants/is
 
 ## Contributing
 
-This repository follows the standards in [dpc-conventions](https://github.com/Dans-Plugins/dpc-conventions). `CONTRIBUTING.md` arrives with the build tooling.
+This repository follows the standards in [dpc-conventions](https://github.com/Dans-Plugins/dpc-conventions). `CONTRIBUTING.md` has not been written yet; until it is, see [Building from source](#building-from-source).
 
 ## License
 
