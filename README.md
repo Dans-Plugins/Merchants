@@ -31,7 +31,7 @@ Every push to `main` that changes more than documentation republishes a rolling 
 /dpm get merchants --experimental
 ```
 
-Return to published releases with `/dpm get merchants --stable`.
+Once a release has been published, `/dpm get merchants --stable` returns to it.
 
 ### Required Companion Plugins
 
