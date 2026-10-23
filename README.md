@@ -21,7 +21,17 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Installation
 
-Not yet released. Once there is a build, installation will follow the usual DPC pattern: drop the jar in `plugins/` and restart. It will also be available through [Dan's Plugin Manager](https://github.com/Dans-Plugins/Dans-Plugin-Manager).
+Not yet released. Once there is a release, installation will follow the usual DPC pattern: drop the jar in `plugins/` and restart. It will also be available through [Dan's Plugin Manager](https://github.com/Dans-Plugins/Dans-Plugin-Manager).
+
+### Development builds
+
+Every push to `main` that changes more than documentation republishes a rolling `dev` prerelease built from that commit (see [Releases](https://github.com/Dans-Plugins/Merchants/releases)). It is unreleased, unreviewed code; at the moment it is the empty skeleton described under [Project Status](#project-status) and does nothing on a server. To try it with Dan's Plugin Manager:
+
+```
+/dpm get merchants --experimental
+```
+
+Return to published releases with `/dpm get merchants --stable`.
 
 ### Required Companion Plugins
 
