@@ -10,7 +10,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**Pre-implementation.** The repository holds a buildable, empty Spigot plugin skeleton; none of the planned features are implemented yet. The scope of the first release is defined in [MVP.md](MVP.md).
+**Early implementation.** The plugin can spawn a merchant villager that stays where it is placed, is saved across restarts (in `plugins/Merchants/merchants.yml`), and cannot be damaged, struck into a witch or converted by a zombie. Nothing calls this in game yet: the `/merchant` command, stock lists and trading are still to come. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
@@ -25,7 +25,7 @@ Not yet released. Once there is a release, installation will follow the usual DP
 
 ### Development builds
 
-Every push to `main` that changes more than documentation republishes a rolling `dev` prerelease built from that commit (see [Releases](https://github.com/Dans-Plugins/Merchants/releases)). It is unreleased, unreviewed code; at the moment it is the empty skeleton described under [Project Status](#project-status) and does nothing on a server. To try it with Dan's Plugin Manager:
+Every push to `main` that changes more than documentation republishes a rolling `dev` prerelease built from that commit (see [Releases](https://github.com/Dans-Plugins/Merchants/releases)). It is unreleased, unreviewed code; at the moment it has no commands, so, as described under [Project Status](#project-status), it does nothing a player can see on a server. To try it with Dan's Plugin Manager:
 
 ```
 /dpm get merchants --experimental
