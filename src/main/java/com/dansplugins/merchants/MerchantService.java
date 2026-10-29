@@ -1,23 +1,45 @@
 package com.dansplugins.merchants;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Villager;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
- * Creates merchants: spawns the villager, keeps it in place, and records it.
+ * Creates and deletes merchants: spawns or removes the villager, keeps it in place, and records it.
  */
 public final class MerchantService {
 
+    /**
+     * Finds a merchant's villager in the world.
+     */
+    interface VillagerLocator {
+
+        /**
+         * @return the villager, or empty if it no longer exists
+         * @throws IllegalStateException if the villager's chunk is not loaded, so whether it still
+         *         exists cannot be told
+         */
+        Optional<Entity> find(Merchant merchant);
+    }
+
     private final MerchantRegistry registry;
     private final MerchantStorage storage;
+    private final VillagerLocator locator;
 
     public MerchantService(MerchantRegistry registry, MerchantStorage storage) {
+        this(registry, storage, MerchantService::findLoadedVillager);
+    }
+
+    MerchantService(MerchantRegistry registry, MerchantStorage storage, VillagerLocator locator) {
         this.registry = registry;
         this.storage = storage;
+        this.locator = locator;
     }
 
     /**
@@ -48,6 +70,44 @@ public final class MerchantService {
         registry.add(merchant);
         storage.save(registry);
         return merchant;
+    }
+
+    /**
+     * Removes the merchant's villager and its record, and saves.
+     *
+     * @return the deleted merchant
+     * @throws IllegalArgumentException if no merchant has this name
+     * @throws IllegalStateException if the villager's chunk is not loaded; nothing is changed, because
+     *         deleting only the record would leave an invulnerable villager standing in the world
+     * @throws IOException if the merchant was removed but the change could not be saved
+     */
+    public Merchant delete(String name) throws IOException {
+        Merchant merchant = registry.getByName(name == null ? "" : name)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "There is no merchant named '" + (name == null ? "" : name.strip()) + "'."));
+        locator.find(merchant).ifPresent(Entity::remove);
+        registry.remove(merchant.name());
+        storage.save(registry);
+        return merchant;
+    }
+
+    /**
+     * A villager whose world is gone is treated as gone too, so its record can still be deleted.
+     */
+    private static Optional<Entity> findLoadedVillager(Merchant merchant) {
+        World world = Bukkit.getWorld(merchant.worldName());
+        if (world == null) {
+            return Optional.empty();
+        }
+        int chunkX = Location.locToBlock(merchant.x()) >> 4;
+        int chunkZ = Location.locToBlock(merchant.z()) >> 4;
+        if (!world.isChunkLoaded(chunkX, chunkZ) || !world.getChunkAt(chunkX, chunkZ).isEntitiesLoaded()) {
+            throw new IllegalStateException("Merchant '" + merchant.name() + "' is in an unloaded area of "
+                    + world.getName() + " at " + Location.locToBlock(merchant.x()) + ", "
+                    + Location.locToBlock(merchant.y()) + ", " + Location.locToBlock(merchant.z())
+                    + ". Go there and try again.");
+        }
+        return Optional.ofNullable(Bukkit.getEntity(merchant.entityId()));
     }
 
     /**

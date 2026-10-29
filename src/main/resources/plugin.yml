@@ -4,3 +4,19 @@ main: com.dansplugins.merchants.Merchants
 api-version: '1.16'
 authors: ["Daniel McCoy Stephenson"]
 description: NPC shopkeepers who buy and sell goods for Medieval Economy coin
+
+commands:
+  merchant:
+    description: Create, delete and list merchants
+    usage: /merchant <create <name>|delete <name>|list>
+
+permissions:
+  merchants.create:
+    description: Create a merchant where you stand with /merchant create
+    default: op
+  merchants.delete:
+    description: Delete a merchant and its villager with /merchant delete
+    default: op
+  merchants.list:
+    description: List every merchant with /merchant list
+    default: op
