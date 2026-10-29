@@ -10,7 +10,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**Early implementation.** The plugin can spawn a merchant villager that stays where it is placed, is saved across restarts (in `plugins/Merchants/merchants.yml`), and cannot be damaged, struck into a witch or converted by a zombie. Nothing calls this in game yet: the `/merchant` command, stock lists and trading are still to come. The scope of the first release is defined in [MVP.md](MVP.md).
+**Early implementation.** Operators can place, delete and list merchants with `/merchant` (see [COMMANDS.md](COMMANDS.md)). A merchant is a villager that stays where it is placed, is saved across restarts (in `plugins/Merchants/merchants.yml`), and cannot be damaged, struck into a witch or converted by a zombie. Stock lists, trading and `/merchant edit` are still to come. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
@@ -25,7 +25,7 @@ Not yet released. Once there is a release, installation will follow the usual DP
 
 ### Development builds
 
-Every push to `main` that changes more than documentation republishes a rolling `dev` prerelease built from that commit (see [Releases](https://github.com/Dans-Plugins/Merchants/releases)). It is unreleased, unreviewed code; at the moment it has no commands, so, as described under [Project Status](#project-status), it does nothing a player can see on a server. To try it with Dan's Plugin Manager:
+Every push to `main` that changes more than documentation republishes a rolling `dev` prerelease built from that commit (see [Releases](https://github.com/Dans-Plugins/Merchants/releases)). It is unreleased, unreviewed code; at the moment merchants can be placed but not traded with, as described under [Project Status](#project-status). To try it with Dan's Plugin Manager:
 
 ```
 /dpm get merchants --experimental
@@ -52,8 +52,9 @@ This compiles the plugin, runs the unit tests and writes the jar to `build/libs/
 ### Documentation
 
 - [MVP](MVP.md) – Scope of the first release, and its deliberate non-goals
+- [Commands](COMMANDS.md) – Every command and permission
 
-`USER_GUIDE.md`, `COMMANDS.md`, `CONFIG.md` and `CHANGELOG.md` land with the first release, per [DOCUMENTATION_PRACTICES.md](https://github.com/Dans-Plugins/dpc-conventions/blob/main/docs/DOCUMENTATION_PRACTICES.md).
+`USER_GUIDE.md`, `CONFIG.md` and `CHANGELOG.md` land with the first release, per [DOCUMENTATION_PRACTICES.md](https://github.com/Dans-Plugins/dpc-conventions/blob/main/docs/DOCUMENTATION_PRACTICES.md).
 
 ## Support
 
