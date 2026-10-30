@@ -4,6 +4,7 @@ import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,10 +12,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -48,8 +53,33 @@ class MerchantCommandTest {
 
     private MerchantCommand command() {
         MerchantStorage storage = new MerchantStorage(dir.resolve("merchants.yml").toFile(), Logger.getAnonymousLogger());
-        MerchantService service = new MerchantService(registry, storage, merchant -> Optional.empty());
-        return new MerchantCommand(service, registry, Logger.getAnonymousLogger());
+        return command(storage, merchant -> Optional.empty(), Logger.getAnonymousLogger());
+    }
+
+    private MerchantCommand command(MerchantStorage storage, MerchantService.VillagerLocator locator, Logger logger) {
+        MerchantService service = new MerchantService(registry, storage, locator);
+        return new MerchantCommand(service, registry, logger);
+    }
+
+    /** A logger that records what it is given instead of printing it. */
+    private static Logger recordingLogger(List<LogRecord> records) {
+        Logger logger = Logger.getAnonymousLogger();
+        logger.setUseParentHandlers(false);
+        logger.addHandler(new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                records.add(record);
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        });
+        return logger;
     }
 
     private void run(CommandSender sender, String... args) {
@@ -138,6 +168,53 @@ class MerchantCommandTest {
 
         assertEquals(List.of("You do not have permission to delete merchants (merchants.delete)."), messages);
         assertTrue(registry.isNameTaken("Baker"));
+    }
+
+    @Test
+    void deleteInAnUnloadedAreaRelaysTheReasonAndKeepsTheMerchant() {
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 0, 64, 0));
+        MerchantStorage storage = new MerchantStorage(dir.resolve("merchants.yml").toFile(), Logger.getAnonymousLogger());
+        MerchantCommand command = command(storage, merchant -> {
+            throw new IllegalStateException("Merchant 'Baker' is in an unloaded area. Go there and try again.");
+        }, Logger.getAnonymousLogger());
+
+        assertTrue(command.onCommand(sender(MerchantCommand.DELETE_PERMISSION), null, "merchant",
+                new String[]{"delete", "Baker"}));
+
+        assertEquals(List.of("Merchant 'Baker' is in an unloaded area. Go there and try again."), messages);
+        assertTrue(registry.isNameTaken("Baker"));
+        assertFalse(dir.resolve("merchants.yml").toFile().exists(), "nothing should be saved");
+    }
+
+    @Test
+    void deleteThatCannotBeSavedSaysSoAndLogs() {
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 0, 64, 0));
+        // Saving onto a directory fails with an IOException.
+        MerchantStorage storage = new MerchantStorage(dir.toFile(), Logger.getAnonymousLogger());
+        List<LogRecord> records = new ArrayList<>();
+        MerchantCommand command = command(storage, merchant -> Optional.empty(), recordingLogger(records));
+
+        assertTrue(command.onCommand(sender(MerchantCommand.DELETE_PERMISSION), null, "merchant",
+                new String[]{"delete", "baker"}));
+
+        // The message echoes the name as typed, not the merchant's stored name.
+        assertEquals(List.of("Merchant 'baker' was deleted but the change could not be saved; see the server log."),
+                messages);
+        assertFalse(registry.isNameTaken("Baker"), "the merchant is removed even though the save failed");
+        assertEquals(1, records.size());
+        assertEquals(Level.SEVERE, records.get(0).getLevel());
+        assertEquals("Could not save merchants after deleting 'baker'", records.get(0).getMessage());
+        assertInstanceOf(IOException.class, records.get(0).getThrown());
+    }
+
+    @Test
+    void tabCompletesNothingPastTheName() {
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 0, 64, 0));
+        CommandSender sender = sender(MerchantCommand.CREATE_PERMISSION, MerchantCommand.DELETE_PERMISSION);
+
+        assertEquals(List.of(), command().onTabComplete(sender, null, "merchant", new String[]{"create", "b"}));
+        assertEquals(List.of(), command().onTabComplete(sender, null, "merchant", new String[]{"delete", "Baker", ""}));
+        assertEquals(List.of(), command().onTabComplete(sender, null, "merchant", new String[]{"x"}));
     }
 
     @Test
