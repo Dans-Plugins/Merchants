@@ -1,6 +1,8 @@
 package com.dansplugins.merchants;
 
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -8,6 +10,7 @@ import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -23,8 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Covers parsing, permissions and messages. Creating a merchant from a player is not covered: a
- * stand-in Player cannot be built without a running server (see MerchantServiceTest).
+ * Covers parsing, permissions and messages.
  */
 class MerchantCommandTest {
 
@@ -46,6 +48,25 @@ class MerchantCommandTest {
                     }
                     if (method.getName().equals("hasPermission") && args[0] instanceof String permission) {
                         return held.contains(permission);
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    /** A player standing at {@code location} who holds the given permissions and records what it is sent. */
+    private Player player(Location location, String... permissions) {
+        Set<String> held = Set.of(permissions);
+        return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("sendMessage") && args.length == 1 && args[0] instanceof String message) {
+                        messages.add(message);
+                        return null;
+                    }
+                    if (method.getName().equals("hasPermission") && args[0] instanceof String permission) {
+                        return held.contains(permission);
+                    }
+                    if (method.getName().equals("getLocation") && args == null) {
+                        return location;
                     }
                     throw new UnsupportedOperationException(method.getName());
                 });
@@ -136,6 +157,55 @@ class MerchantCommandTest {
         assertEquals(List.of("Only a player can create a merchant, because it is placed where the player stands."),
                 messages);
         assertTrue(registry.all().isEmpty());
+    }
+
+    @Test
+    void createPlacesAMerchantWhereThePlayerStands() {
+        UUID villagerId = UUID.randomUUID();
+        Location location = new Location(MerchantServiceTest.world("world", villagerId, new LinkedHashMap<>()),
+                10.5, 64, -3.25);
+
+        run(player(location, MerchantCommand.CREATE_PERMISSION), "CREATE", "Old", "Baker");
+
+        assertEquals(List.of("Created merchant 'Old Baker'."), messages);
+        assertEquals(List.of(new Merchant(villagerId, "Old Baker", "world", 10.5, 64, -3.25)), registry.all());
+    }
+
+    @Test
+    void createWithoutANameShowsUsage() {
+        run(player(new Location(null, 0, 64, 0), MerchantCommand.CREATE_PERMISSION), "create", " ");
+        assertEquals(List.of("Usage: /merchant create <name>"), messages);
+    }
+
+    @Test
+    void createOfATakenNameSaysSo() {
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 0, 64, 0));
+
+        run(player(new Location(null, 0, 64, 0), MerchantCommand.CREATE_PERMISSION), "create", "baker");
+
+        assertEquals(List.of("A merchant named 'baker' already exists."), messages);
+        assertEquals(1, registry.all().size());
+    }
+
+    @Test
+    void createThatCannotBeSavedSaysSoAndLogs() {
+        UUID villagerId = UUID.randomUUID();
+        // Saving onto a directory fails with an IOException.
+        MerchantStorage storage = new MerchantStorage(dir.toFile(), Logger.getAnonymousLogger());
+        List<LogRecord> records = new ArrayList<>();
+        MerchantCommand command = command(storage, merchant -> Optional.empty(), recordingLogger(records));
+        Location location = new Location(MerchantServiceTest.world("world", villagerId, new LinkedHashMap<>()),
+                0, 64, 0);
+
+        assertTrue(command.onCommand(player(location, MerchantCommand.CREATE_PERMISSION), null, "merchant",
+                new String[]{"create", "Baker"}));
+
+        assertEquals(List.of("Merchant 'Baker' was created but could not be saved; see the server log."), messages);
+        assertTrue(registry.isMerchant(villagerId), "the merchant is kept even though the save failed");
+        assertEquals(1, records.size());
+        assertEquals(Level.SEVERE, records.get(0).getLevel());
+        assertEquals("Could not save merchants after creating 'Baker'", records.get(0).getMessage());
+        assertInstanceOf(IOException.class, records.get(0).getThrown());
     }
 
     @Test
