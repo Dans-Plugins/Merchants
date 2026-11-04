@@ -37,9 +37,9 @@ public final class MerchantStorage {
 
     /**
      * Loads every well-formed record. A malformed or duplicate record is logged and skipped
-     * rather than stopping the rest from loading, and a file that cannot be parsed loads no
-     * merchants. Either way the file is copied before the next {@link #save} replaces it, because
-     * saving writes only what loaded.
+     * rather than stopping the rest from loading, and a file that cannot be parsed or has no
+     * merchants section loads no merchants. In each case the file is copied before the next
+     * {@link #save} replaces it, because saving writes only what loaded.
      */
     public MerchantRegistry load() {
         MerchantRegistry registry = new MerchantRegistry();
@@ -58,6 +58,11 @@ public final class MerchantStorage {
         }
         ConfigurationSection root = yaml.getConfigurationSection(ROOT);
         if (root == null) {
+            // save always writes the section, so any other content is a hand edit worth keeping.
+            if (!yaml.getKeys(false).isEmpty()) {
+                copyBeforeNextSave = true;
+                logger.severe("Found no '" + ROOT + "' section in " + file.getName() + ", so no merchants were loaded.");
+            }
             return registry;
         }
         for (String id : root.getKeys(false)) {

@@ -146,6 +146,33 @@ class MerchantStorageTest {
     }
 
     @Test
+    void aFileWithoutTheMerchantsSectionIsCopiedBeforeItIsOverwritten() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = "merchantz:\n  some-id:\n    name: Cooper\n";
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+
+        MerchantRegistry loaded = storage.load();
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("merchants.yml")), warnings.toString());
+        storage.save(loaded);
+
+        assertEquals(1, backups().size());
+        assertEquals(original, Files.readString(backups().get(0), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void savingOverAFileWithNoMerchantsKeepsNoCopy() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        storage(file).save(new MerchantRegistry());
+        MerchantStorage storage = storage(file);
+
+        storage.save(storage.load());
+
+        assertTrue(backups().isEmpty());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
+    @Test
     void onlyTheFirstSaveAfterAFailedLoadKeepsACopy() throws IOException {
         File file = dir.resolve("merchants.yml").toFile();
         Files.writeString(file.toPath(), "merchants:\n  not-a-uuid:\n    name: Cooper\n", StandardCharsets.UTF_8);
