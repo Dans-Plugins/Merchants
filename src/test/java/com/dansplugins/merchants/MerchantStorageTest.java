@@ -161,6 +161,19 @@ class MerchantStorageTest {
     }
 
     @Test
+    void aMerchantsKeyThatIsNotASectionIsCopiedBeforeItIsOverwritten() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = "merchants: [Cooper, Fletcher]\n";
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+
+        storage.save(storage.load());
+
+        assertEquals(1, backups().size());
+        assertEquals(original, Files.readString(backups().get(0), StandardCharsets.UTF_8));
+    }
+
+    @Test
     void savingOverAFileWithNoMerchantsKeepsNoCopy() throws IOException {
         File file = dir.resolve("merchants.yml").toFile();
         storage(file).save(new MerchantRegistry());
