@@ -14,8 +14,10 @@ import java.util.UUID;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MerchantStorageTest {
@@ -99,5 +101,94 @@ class MerchantStorageTest {
         assertTrue(warnings.stream().anyMatch(w -> w.contains("not-a-uuid")), warnings.toString());
         assertTrue(warnings.stream().anyMatch(w -> w.contains(noWorld.toString())), warnings.toString());
         assertTrue(warnings.stream().anyMatch(w -> w.contains(duplicateName.toString())), warnings.toString());
+    }
+
+    @Test
+    void savingOverAMalformedRecordKeepsACopyOfTheOldFile() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = String.join("\n",
+                "merchants:",
+                "  not-a-uuid:",
+                "    name: Cooper",
+                "    world: world",
+                "");
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+
+        MerchantRegistry loaded = storage.load();
+        assertTrue(backups().isEmpty(), "loading alone should not write anything");
+        storage.save(loaded);
+
+        assertEquals(1, backups().size());
+        Path copy = backups().get(0);
+        assertEquals(original, Files.readString(copy, StandardCharsets.UTF_8));
+        assertTrue(warnings.stream().anyMatch(w -> w.contains(copy.getFileName().toString())), warnings.toString());
+    }
+
+    @Test
+    void anUnparseableFileLoadsNoMerchantsAndIsCopiedBeforeItIsOverwritten() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = "merchants:\n\tbroken: [\n";
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+
+        MerchantRegistry loaded = storage.load();
+        assertTrue(loaded.all().isEmpty());
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("merchants.yml")), warnings.toString());
+
+        Merchant baker = new Merchant(UUID.randomUUID(), "Baker", "world", 1, 2, 3);
+        loaded.add(baker);
+        storage.save(loaded);
+
+        assertEquals(1, backups().size());
+        assertEquals(original, Files.readString(backups().get(0), StandardCharsets.UTF_8));
+        assertEquals(List.of(baker), storage(file).load().all());
+    }
+
+    @Test
+    void onlyTheFirstSaveAfterAFailedLoadKeepsACopy() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), "merchants:\n  not-a-uuid:\n    name: Cooper\n", StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+        MerchantRegistry loaded = storage.load();
+
+        storage.save(loaded);
+        storage.save(loaded);
+
+        assertEquals(1, backups().size());
+    }
+
+    @Test
+    void savingOverACleanlyLoadedFileKeepsNoCopy() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        MerchantRegistry registry = new MerchantRegistry();
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 1, 2, 3));
+        storage(file).save(registry);
+        MerchantStorage storage = storage(file);
+
+        storage.save(storage.load());
+
+        assertTrue(backups().isEmpty());
+    }
+
+    @Test
+    void aFailedCopyStopsTheSaveAndLeavesTheFileAlone() throws IOException {
+        // The copy goes next to the file, so a directory already holding the name makes it fail.
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = "merchants:\n  not-a-uuid:\n    name: Cooper\n";
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = new MerchantStorage(file, Logger.getAnonymousLogger(), () -> 1L);
+        MerchantRegistry loaded = storage.load();
+        Files.createDirectory(dir.resolve("merchants.yml.broken-1"));
+
+        assertThrows(IOException.class, () -> storage.save(loaded));
+
+        assertEquals(original, Files.readString(file.toPath(), StandardCharsets.UTF_8));
+    }
+
+    private List<Path> backups() throws IOException {
+        try (Stream<Path> files = Files.list(dir)) {
+            return files.filter(path -> path.getFileName().toString().startsWith("merchants.yml.broken-")).toList();
+        }
     }
 }
