@@ -2,6 +2,8 @@ package com.dansplugins.merchants;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -92,6 +94,9 @@ class MerchantStorageTest {
                 "  " + duplicateName + ":",
                 "    name: baker",
                 "    world: world",
+                "    x: 4.0",
+                "    y: 5.0",
+                "    z: 6.0",
                 ""), StandardCharsets.UTF_8);
 
         MerchantRegistry loaded = storage(file).load();
@@ -100,7 +105,57 @@ class MerchantStorageTest {
         assertEquals(3, warnings.size(), warnings.toString());
         assertTrue(warnings.stream().anyMatch(w -> w.contains("not-a-uuid")), warnings.toString());
         assertTrue(warnings.stream().anyMatch(w -> w.contains(noWorld.toString())), warnings.toString());
-        assertTrue(warnings.stream().anyMatch(w -> w.contains(duplicateName.toString())), warnings.toString());
+        assertTrue(warnings.stream().anyMatch(w -> w.contains(duplicateName.toString())
+                && w.contains("already exists")), warnings.toString());
+    }
+
+    private static String recordWithZ(UUID id, String zLine) {
+        return String.join("\n",
+                "merchants:",
+                "  " + id + ":",
+                "    name: Baker",
+                "    world: world",
+                "    x: 1.0",
+                "    y: 2.0",
+                zLine,
+                "");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"    other: 3.0", "    z: three", "    z: '3.0'", "    z: .nan", "    z: .inf"})
+    void aRecordWithABadCoordinateIsSkippedNotLoadedAtZero(String zLine) throws IOException {
+        UUID id = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), recordWithZ(id, zLine), StandardCharsets.UTF_8);
+
+        MerchantRegistry loaded = storage(file).load();
+
+        assertTrue(loaded.all().isEmpty(), loaded.all().toString());
+        assertEquals(1, warnings.size(), warnings.toString());
+        assertTrue(warnings.get(0).contains(id.toString()) && warnings.get(0).contains("'z'"), warnings.toString());
+    }
+
+    @Test
+    void savingOverABadCoordinateKeepsACopyOfTheOldFile() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = recordWithZ(UUID.randomUUID(), "    z: three");
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+
+        storage.save(storage.load());
+
+        assertEquals(1, backups().size());
+        assertEquals(original, Files.readString(backups().get(0), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void wholeNumberCoordinatesLoad() throws IOException {
+        UUID id = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), recordWithZ(id, "    z: -3"), StandardCharsets.UTF_8);
+
+        assertEquals(List.of(new Merchant(id, "Baker", "world", 1, 2, -3)), storage(file).load().all());
+        assertTrue(warnings.isEmpty(), warnings.toString());
     }
 
     @Test
