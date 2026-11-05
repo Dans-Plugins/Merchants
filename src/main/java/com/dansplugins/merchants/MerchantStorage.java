@@ -75,15 +75,26 @@ public final class MerchantStorage {
                         UUID.fromString(id),
                         section.getString("name"),
                         section.getString("world"),
-                        section.getDouble("x"),
-                        section.getDouble("y"),
-                        section.getDouble("z")));
+                        coordinate(section, "x"),
+                        coordinate(section, "y"),
+                        coordinate(section, "z")));
             } catch (IllegalArgumentException | NullPointerException e) {
                 copyBeforeNextSave = true;
                 logger.warning("Skipping merchant '" + id + "' in " + file.getName() + ": " + e.getMessage());
             }
         }
         return registry;
+    }
+
+    /**
+     * Not ConfigurationSection.getDouble: it returns 0 for a missing or non-numeric value, which would
+     * load the merchant at the wrong place and then save that place over the original.
+     */
+    private static double coordinate(ConfigurationSection section, String key) {
+        if (!(section.get(key) instanceof Number number) || !Double.isFinite(number.doubleValue())) {
+            throw new IllegalArgumentException("'" + key + "' is not a number");
+        }
+        return number.doubleValue();
     }
 
     /**
