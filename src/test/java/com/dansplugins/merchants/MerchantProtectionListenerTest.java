@@ -1,8 +1,10 @@
 package com.dansplugins.merchants;
 
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Vehicle;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.entity.EntityTransformEvent;
+import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -28,6 +30,14 @@ class MerchantProtectionListenerTest {
     private static EntityTransformEvent transform(Entity entity) {
         Entity witch = entity(UUID.randomUUID());
         return new EntityTransformEvent(entity, List.of(witch), EntityTransformEvent.TransformReason.LIGHTNING);
+    }
+
+    private static VehicleEnterEvent vehicleEnter(Entity entered) {
+        Vehicle vehicle = (Vehicle) Proxy.newProxyInstance(Vehicle.class.getClassLoader(), new Class<?>[]{Vehicle.class},
+                (proxy, method, args) -> {
+                    throw new UnsupportedOperationException(method.getName());
+                });
+        return new VehicleEnterEvent(vehicle, entered);
     }
 
     /**
@@ -90,6 +100,29 @@ class MerchantProtectionListenerTest {
 
         EntityTransformEvent event = transform(entity(UUID.randomUUID()));
         new MerchantProtectionListener(registry).onTransform(event);
+
+        assertFalse(event.isCancelled());
+    }
+
+    @Test
+    void merchantDoesNotEnterAVehicle() {
+        MerchantRegistry registry = new MerchantRegistry();
+        UUID id = UUID.randomUUID();
+        registry.add(new Merchant(id, "Baker", "world", 0, 64, 0));
+
+        VehicleEnterEvent event = vehicleEnter(entity(id));
+        new MerchantProtectionListener(registry).onVehicleEnter(event);
+
+        assertTrue(event.isCancelled());
+    }
+
+    @Test
+    void otherEntitiesEnterVehiclesAsNormal() {
+        MerchantRegistry registry = new MerchantRegistry();
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 0, 64, 0));
+
+        VehicleEnterEvent event = vehicleEnter(entity(UUID.randomUUID()));
+        new MerchantProtectionListener(registry).onVehicleEnter(event);
 
         assertFalse(event.isCancelled());
     }

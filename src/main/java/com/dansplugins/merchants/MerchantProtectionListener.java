@@ -7,10 +7,12 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
+import org.bukkit.event.vehicle.VehicleEnterEvent;
 
 /**
- * Keeps merchants alive and unchanged: they take no damage from any source, and are never
- * turned into a witch by lightning or into a zombie villager by a zombie.
+ * Keeps merchants alive, unchanged and in place: they take no damage from any source, are never
+ * turned into a witch by lightning or into a zombie villager by a zombie, and never get into a
+ * boat or minecart, which would carry them away from their stored location.
  */
 public final class MerchantProtectionListener implements Listener {
 
@@ -28,6 +30,11 @@ public final class MerchantProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onTransform(EntityTransformEvent event) {
         cancelIfMerchant(event.getEntity(), event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onVehicleEnter(VehicleEnterEvent event) {
+        cancelIfMerchant(event.getEntered(), event);
     }
 
     // Package-private so tests can cover damage without constructing an EntityDamageEvent,
