@@ -1,8 +1,10 @@
 package com.dansplugins.merchants;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Vehicle;
 import org.bukkit.event.Cancellable;
+import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,10 @@ class MerchantProtectionListenerTest {
                     throw new UnsupportedOperationException(method.getName());
                 });
         return new VehicleEnterEvent(vehicle, entered);
+    }
+
+    private static EntityPortalEvent portal(Entity entity) {
+        return new EntityPortalEvent(entity, new Location(null, 0, 64, 0), new Location(null, 0, 64, 0));
     }
 
     /**
@@ -123,6 +129,29 @@ class MerchantProtectionListenerTest {
 
         VehicleEnterEvent event = vehicleEnter(entity(UUID.randomUUID()));
         new MerchantProtectionListener(registry).onVehicleEnter(event);
+
+        assertFalse(event.isCancelled());
+    }
+
+    @Test
+    void merchantDoesNotGoThroughAPortal() {
+        MerchantRegistry registry = new MerchantRegistry();
+        UUID id = UUID.randomUUID();
+        registry.add(new Merchant(id, "Baker", "world", 0, 64, 0));
+
+        EntityPortalEvent event = portal(entity(id));
+        new MerchantProtectionListener(registry).onPortal(event);
+
+        assertTrue(event.isCancelled());
+    }
+
+    @Test
+    void otherEntitiesGoThroughPortalsAsNormal() {
+        MerchantRegistry registry = new MerchantRegistry();
+        registry.add(new Merchant(UUID.randomUUID(), "Baker", "world", 0, 64, 0));
+
+        EntityPortalEvent event = portal(entity(UUID.randomUUID()));
+        new MerchantProtectionListener(registry).onPortal(event);
 
         assertFalse(event.isCancelled());
     }

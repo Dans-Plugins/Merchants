@@ -46,6 +46,8 @@ public final class MerchantService {
      * Spawns a named, stationary merchant villager at {@code location} and saves it.
      *
      * @throws IllegalArgumentException if the name is blank or already used by another merchant
+     * @throws IllegalStateException if the villager did not enter the world, usually because another
+     *         plugin cancelled its spawn; nothing is recorded, because there is no merchant to record
      * @throws IOException if the merchant was spawned but could not be saved
      */
     public Merchant create(Location location, String name) throws IOException {
@@ -63,6 +65,10 @@ public final class MerchantService {
         // spawnEntity rather than spawn(Location, Class, Consumer): the Consumer overload's
         // parameter type changed after 1.19.4, so it would not resolve on every supported version.
         Villager villager = (Villager) world.spawnEntity(location, EntityType.VILLAGER);
+        if (!villager.isValid()) {
+            throw new IllegalStateException("The merchant could not be placed here: its villager did not spawn."
+                    + " Another plugin may be blocking mob spawns in this area.");
+        }
         makeStationary(villager, name.strip());
 
         Merchant merchant = new Merchant(villager.getUniqueId(), name, world.getName(),
