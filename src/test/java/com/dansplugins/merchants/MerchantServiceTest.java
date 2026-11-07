@@ -35,11 +35,22 @@ class MerchantServiceTest {
      * on that villager is recorded in {@code villagerCalls} as method name to argument.
      */
     static World world(String name, UUID villagerId, Map<String, Object> villagerCalls) {
+        return world(name, villagerId, villagerCalls, true);
+    }
+
+    /**
+     * As {@link #world(String, UUID, Map)}, with {@code spawned} false for a villager that never entered
+     * the world, as when another plugin cancels its spawn.
+     */
+    static World world(String name, UUID villagerId, Map<String, Object> villagerCalls, boolean spawned) {
         Villager villager = (Villager) Proxy.newProxyInstance(Villager.class.getClassLoader(),
                 new Class<?>[]{Villager.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("getUniqueId")) {
                         return villagerId;
+                    }
+                    if (method.getName().equals("isValid")) {
+                        return spawned;
                     }
                     if (method.getName().startsWith("set") && args != null && args.length == 1) {
                         villagerCalls.put(method.getName(), args[0]);
@@ -143,6 +154,24 @@ class MerchantServiceTest {
                 new Location(world("world", villagerId, new LinkedHashMap<>()), 0, 64, 0), "Baker"));
         // The villager is already in the world, so the record is kept rather than orphaning it.
         assertTrue(registry.isMerchant(villagerId));
+    }
+
+    @Test
+    void createWhoseSpawnWasBlockedRecordsNothing() {
+        MerchantRegistry registry = new MerchantRegistry();
+        UUID villagerId = UUID.randomUUID();
+        Map<String, Object> calls = new LinkedHashMap<>();
+        Location location = new Location(world("world", villagerId, calls, false), 0, 64, 0);
+
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> service(registry).create(location, "Baker"));
+
+        assertEquals("The merchant could not be placed here: its villager did not spawn."
+                + " Another plugin may be blocking mob spawns in this area.", e.getMessage());
+        assertEquals(Map.of("spawnedAt", location), calls);
+        assertFalse(registry.isMerchant(villagerId));
+        assertTrue(registry.all().isEmpty());
+        assertFalse(dir.resolve("merchants.yml").toFile().exists(), "nothing should be saved");
     }
 
     private MerchantStorage storage() {

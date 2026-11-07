@@ -188,6 +188,18 @@ class MerchantCommandTest {
     }
 
     @Test
+    void createWhoseSpawnWasBlockedSaysSo() {
+        Location location = new Location(
+                MerchantServiceTest.world("world", UUID.randomUUID(), new LinkedHashMap<>(), false), 0, 64, 0);
+
+        run(player(location, MerchantCommand.CREATE_PERMISSION), "create", "Baker");
+
+        assertEquals(List.of("The merchant could not be placed here: its villager did not spawn."
+                + " Another plugin may be blocking mob spawns in this area."), messages);
+        assertTrue(registry.all().isEmpty());
+    }
+
+    @Test
     void createThatCannotBeSavedSaysSoAndLogs() {
         UUID villagerId = UUID.randomUUID();
         // Saving onto a directory fails with an IOException.

@@ -67,7 +67,7 @@ public final class MerchantCommand implements TabExecutor {
         try {
             Merchant merchant = service.create(player.getLocation(), name);
             sender.sendMessage("Created merchant '" + merchant.name() + "'.");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             sender.sendMessage(e.getMessage());
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Could not save merchants after creating '" + name + "'", e);
