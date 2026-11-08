@@ -10,7 +10,7 @@ This plugin was proposed from a Kingdom: First Era player request on 2026-09-04 
 
 ## Project Status
 
-**Early implementation.** Operators can place, delete and list merchants with `/merchant` (see [COMMANDS.md](COMMANDS.md)). A merchant is a villager that stays where it is placed, is saved across restarts (in `plugins/Merchants/merchants.yml`), and cannot be damaged, struck into a witch, converted by a zombie or carried off in a boat, in a minecart or through a portal. If part of `merchants.yml` cannot be loaded, the server log says so, and a copy is kept as `merchants.yml.broken-<time>` before the file is next replaced, so a hand edit gone wrong can be repaired. Stock lists, trading and `/merchant edit` are still to come. The scope of the first release is defined in [MVP.md](MVP.md).
+**Early implementation.** Operators can place, delete and list merchants with `/merchant` (see [COMMANDS.md](COMMANDS.md)). A merchant is a villager that stays where it is placed, is saved across restarts (in `plugins/Merchants/merchants.yml`), and cannot be damaged, struck into a witch, converted by a zombie or carried off in a boat, in a minecart or through a portal. A name tag cannot rename it, so its nameplate keeps showing the name `/merchant` uses. If part of `merchants.yml` cannot be loaded, the server log says so, and a copy is kept as `merchants.yml.broken-<time>` before the file is next replaced, so a hand edit gone wrong can be repaired. Stock lists, trading and `/merchant edit` are still to come. The scope of the first release is defined in [MVP.md](MVP.md).
 
 ## Planned Features
 
