@@ -121,11 +121,15 @@ public final class MerchantCommand implements TabExecutor {
             addIfAllowed(completions, sender, prefix, "create", CREATE_PERMISSION);
             addIfAllowed(completions, sender, prefix, "delete", DELETE_PERMISSION);
             addIfAllowed(completions, sender, prefix, "list", LIST_PERMISSION);
-        } else if (args.length == 2 && args[0].equalsIgnoreCase("delete") && sender.hasPermission(DELETE_PERMISSION)) {
-            String prefix = args[1].toLowerCase(Locale.ROOT);
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("delete") && sender.hasPermission(DELETE_PERMISSION)) {
+            // A name may contain spaces, so it can span several arguments. The client replaces only
+            // the last argument with a completion, so offer the part of the name from there on.
+            String typed = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+            int lastArgumentStart = typed.length() - args[args.length - 1].length();
             for (Merchant merchant : registry.all()) {
-                if (merchant.name().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                    completions.add(merchant.name());
+                String name = merchant.name();
+                if (name.length() >= typed.length() && name.regionMatches(true, 0, typed, 0, typed.length())) {
+                    completions.add(name.substring(lastArgumentStart));
                 }
             }
         }

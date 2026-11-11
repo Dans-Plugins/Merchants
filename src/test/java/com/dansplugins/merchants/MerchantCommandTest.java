@@ -319,4 +319,21 @@ class MerchantCommandTest {
         assertEquals(List.of(), command().onTabComplete(
                 sender(), null, "merchant", new String[]{"delete", "b"}));
     }
+
+    @Test
+    void tabCompletesTheRestOfANameWithSpaces() {
+        registry.add(new Merchant(UUID.randomUUID(), "Old Baker", "world", 0, 64, 0));
+        registry.add(new Merchant(UUID.randomUUID(), "Old Butcher", "world", 0, 64, 0));
+        registry.add(new Merchant(UUID.randomUUID(), "Older Smith", "world", 0, 64, 0));
+        CommandSender sender = sender(MerchantCommand.DELETE_PERMISSION);
+
+        assertEquals(List.of("Baker"), command().onTabComplete(
+                sender, null, "merchant", new String[]{"delete", "old", "ba"}));
+        assertEquals(List.of("Baker", "Butcher"), command().onTabComplete(
+                sender, null, "merchant", new String[]{"delete", "Old", ""}));
+        assertEquals(List.of("Old Baker", "Old Butcher", "Older Smith"), command().onTabComplete(
+                sender, null, "merchant", new String[]{"delete", "old"}));
+        assertEquals(List.of(), command().onTabComplete(
+                sender(), null, "merchant", new String[]{"delete", "Old", ""}));
+    }
 }
