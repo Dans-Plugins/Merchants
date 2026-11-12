@@ -158,6 +158,92 @@ class MerchantStorageTest {
         assertTrue(warnings.isEmpty(), warnings.toString());
     }
 
+    /** A file holding a well-formed Baker record followed by {@code otherRecord}, which is indented as a record. */
+    private static String bakerAnd(UUID baker, String... otherRecord) {
+        return String.join("\n",
+                "merchants:",
+                "  " + baker + ":",
+                "    name: Baker",
+                "    world: world",
+                "    x: 1.0",
+                "    y: 2.0",
+                "    z: 3.0",
+                String.join("\n", otherRecord),
+                "");
+    }
+
+    @Test
+    void aRecordWithoutAWorldIsSkippedAndTheRestLoad() throws IOException {
+        UUID baker = UUID.randomUUID();
+        UUID noWorld = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        // Every coordinate is present, so the record fails on its missing world rather than on a coordinate.
+        Files.writeString(file.toPath(), bakerAnd(baker,
+                "  " + noWorld + ":",
+                "    name: Fletcher",
+                "    x: 4.0",
+                "    y: 5.0",
+                "    z: 6.0"), StandardCharsets.UTF_8);
+
+        MerchantRegistry loaded = storage(file).load();
+
+        assertEquals(List.of(new Merchant(baker, "Baker", "world", 1, 2, 3)), loaded.all());
+        assertEquals(List.of("Skipping merchant '" + noWorld + "' in merchants.yml: worldName"), warnings);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "    name: ''", "    name: '   '"})
+    void aRecordWithoutANameIsSkippedAndTheRestLoad(String nameLine) throws IOException {
+        UUID baker = UUID.randomUUID();
+        UUID noName = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), bakerAnd(baker,
+                "  " + noName + ":",
+                nameLine,
+                "    world: world",
+                "    x: 4.0",
+                "    y: 5.0",
+                "    z: 6.0"), StandardCharsets.UTF_8);
+
+        MerchantRegistry loaded = storage(file).load();
+
+        assertEquals(List.of(new Merchant(baker, "Baker", "world", 1, 2, 3)), loaded.all());
+        assertEquals(List.of("Skipping merchant '" + noName + "' in merchants.yml: A merchant needs a name."),
+                warnings);
+    }
+
+    @Test
+    void aRecordThatIsNotASectionIsSkippedAndTheRestLoad() throws IOException {
+        UUID baker = UUID.randomUUID();
+        UUID scalar = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), bakerAnd(baker, "  " + scalar + ": Fletcher"), StandardCharsets.UTF_8);
+
+        MerchantRegistry loaded = storage(file).load();
+
+        assertEquals(List.of(new Merchant(baker, "Baker", "world", 1, 2, 3)), loaded.all());
+        assertEquals(List.of("Skipping merchant '" + scalar + "' in merchants.yml: not a section"), warnings);
+    }
+
+    @Test
+    void namesThatNeedQuotingInYamlLoadBack() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        MerchantRegistry registry = new MerchantRegistry();
+        List<Merchant> merchants = List.of(
+                new Merchant(UUID.randomUUID(), "Baker: Old #1", "world", 0, 64, 0),
+                new Merchant(UUID.randomUUID(), "'Quoted' & [bracketed]", "world", 0, 64, 0),
+                new Merchant(UUID.randomUUID(), "Ölmüller", "world", 0, 64, 0),
+                new Merchant(UUID.randomUUID(), "null", "world", 0, 64, 0),
+                new Merchant(UUID.randomUUID(), "42", "world", 0, 64, 0));
+        merchants.forEach(registry::add);
+
+        storage(file).save(registry);
+        MerchantRegistry loaded = storage(file).load();
+
+        assertEquals(registry.all(), loaded.all());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
     @Test
     void savingOverAMalformedRecordKeepsACopyOfTheOldFile() throws IOException {
         File file = dir.resolve("merchants.yml").toFile();
