@@ -74,7 +74,7 @@ public final class MerchantStorage {
                 registry.add(new Merchant(
                         UUID.fromString(id),
                         section.getString("name"),
-                        section.getString("world"),
+                        world(section),
                         coordinate(section, "x"),
                         coordinate(section, "y"),
                         coordinate(section, "z")));
@@ -84,6 +84,18 @@ public final class MerchantStorage {
             }
         }
         return registry;
+    }
+
+    /**
+     * Checked here rather than left to the Merchant constructor, whose message names the Java
+     * parameter instead of the key a server owner would need to add.
+     */
+    private static String world(ConfigurationSection section) {
+        String world = section.getString("world");
+        if (world == null) {
+            throw new IllegalArgumentException("'world' is missing");
+        }
+        return world;
     }
 
     /**
