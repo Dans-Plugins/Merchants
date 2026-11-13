@@ -188,7 +188,7 @@ class MerchantStorageTest {
         MerchantRegistry loaded = storage(file).load();
 
         assertEquals(List.of(new Merchant(baker, "Baker", "world", 1, 2, 3)), loaded.all());
-        assertEquals(List.of("Skipping merchant '" + noWorld + "' in merchants.yml: worldName"), warnings);
+        assertEquals(List.of("Skipping merchant '" + noWorld + "' in merchants.yml: 'world' is missing"), warnings);
     }
 
     @ParameterizedTest
