@@ -1,16 +1,21 @@
 package com.dansplugins.merchants;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Villager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -241,5 +246,151 @@ class MerchantServiceTest {
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> service.delete(" Baker "));
         assertEquals("There is no merchant named 'Baker'.", e.getMessage());
+    }
+
+    // The tests below go through the public constructor, so delete uses the default locator, which
+    // asks Bukkit for the world and the entity. Bukkit's server is a JVM-wide singleton that can be
+    // set only once, so a single stand-in is installed and each test sets what it answers.
+
+    /** The world {@code Bukkit.getWorld} returns for its name; null for a world that does not exist. */
+    private static World serverWorld;
+    /** The entity {@code Bukkit.getEntity} returns; null for one that is no longer in the world. */
+    private static Entity serverEntity;
+    /** Every lookup the locator made, in order, as method name and arguments. */
+    private static final List<String> serverCalls = new ArrayList<>();
+
+    private static void installServer() {
+        if (Bukkit.getServer() != null) {
+            return;
+        }
+        Bukkit.setServer((Server) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class<?>[]{Server.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    // Bukkit.setServer logs the server's name and version.
+                    case "getLogger" -> Logger.getAnonymousLogger();
+                    case "getName", "getVersion", "getBukkitVersion" -> "test";
+                    case "getWorld" -> {
+                        serverCalls.add("getWorld " + args[0]);
+                        yield serverWorld != null && serverWorld.getName().equals(args[0]) ? serverWorld : null;
+                    }
+                    case "getEntity" -> {
+                        serverCalls.add("getEntity " + args[0]);
+                        yield serverEntity;
+                    }
+                    default -> throw new UnsupportedOperationException(method.getName());
+                }));
+    }
+
+    @BeforeEach
+    void resetServer() {
+        installServer();
+        serverWorld = null;
+        serverEntity = null;
+        serverCalls.clear();
+    }
+
+    /**
+     * A world named {@code name} that records each chunk check in {@link #serverCalls}, reports every
+     * chunk as loaded or not, and reports every loaded chunk's entities as loaded or not.
+     */
+    private static World chunkWorld(String name, boolean chunkLoaded, boolean entitiesLoaded) {
+        Chunk chunk = (Chunk) Proxy.newProxyInstance(Chunk.class.getClassLoader(), new Class<?>[]{Chunk.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("isEntitiesLoaded")) {
+                        return entitiesLoaded;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+        return (World) Proxy.newProxyInstance(World.class.getClassLoader(), new Class<?>[]{World.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("getName")) {
+                        return name;
+                    }
+                    if (method.getName().equals("isChunkLoaded") && args.length == 2) {
+                        serverCalls.add("isChunkLoaded " + args[0] + ", " + args[1]);
+                        return chunkLoaded;
+                    }
+                    if (method.getName().equals("getChunkAt") && args.length == 2 && args[0] instanceof Integer) {
+                        serverCalls.add("getChunkAt " + args[0] + ", " + args[1]);
+                        return chunk;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    /** A registry holding one merchant, Baker, in {@code world} at block 10, 64, -4 (chunk 0, -1). */
+    private static MerchantRegistry bakerAt(UUID entityId) {
+        MerchantRegistry registry = new MerchantRegistry();
+        registry.add(new Merchant(entityId, "Baker", "world", 10.7, 64.0, -3.2));
+        return registry;
+    }
+
+    @Test
+    void defaultLocatorRemovesTheVillagerInALoadedChunk() throws IOException {
+        UUID entityId = UUID.randomUUID();
+        MerchantRegistry registry = bakerAt(entityId);
+        AtomicInteger removals = new AtomicInteger();
+        serverWorld = chunkWorld("world", true, true);
+        serverEntity = villager(removals);
+
+        service(registry).delete("Baker");
+
+        assertEquals(List.of("getWorld world", "isChunkLoaded 0, -1", "getChunkAt 0, -1", "getEntity " + entityId),
+                serverCalls);
+        assertEquals(1, removals.get());
+        assertTrue(registry.all().isEmpty());
+        assertTrue(storage().load().all().isEmpty());
+    }
+
+    @Test
+    void defaultLocatorDeletesTheRecordWhenTheVillagerIsGone() throws IOException {
+        UUID entityId = UUID.randomUUID();
+        MerchantRegistry registry = bakerAt(entityId);
+        serverWorld = chunkWorld("world", true, true);
+
+        service(registry).delete("Baker");
+
+        assertEquals("getEntity " + entityId, serverCalls.get(serverCalls.size() - 1));
+        assertTrue(registry.all().isEmpty());
+    }
+
+    @Test
+    void defaultLocatorDeletesTheRecordWhenTheWorldIsGone() throws IOException {
+        MerchantRegistry registry = bakerAt(UUID.randomUUID());
+        serverWorld = chunkWorld("world_nether", true, true);
+
+        service(registry).delete("Baker");
+
+        // No chunk check and no entity lookup: a missing world means a missing villager.
+        assertEquals(List.of("getWorld world"), serverCalls);
+        assertTrue(registry.all().isEmpty());
+        assertTrue(storage().load().all().isEmpty());
+    }
+
+    @Test
+    void defaultLocatorRefusesWhenTheChunkIsNotLoaded() {
+        MerchantRegistry registry = bakerAt(UUID.randomUUID());
+        serverWorld = chunkWorld("world", false, true);
+
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> service(registry).delete("Baker"));
+
+        assertEquals("Merchant 'Baker' is in an unloaded area of world at 10, 64, -4. Go there and try again.",
+                e.getMessage());
+        assertEquals(List.of("getWorld world", "isChunkLoaded 0, -1"), serverCalls);
+        assertTrue(registry.isNameTaken("Baker"));
+        assertFalse(dir.resolve("merchants.yml").toFile().exists(), "nothing should be saved");
+    }
+
+    @Test
+    void defaultLocatorRefusesWhenTheChunksEntitiesAreNotLoaded() {
+        MerchantRegistry registry = bakerAt(UUID.randomUUID());
+        serverWorld = chunkWorld("world", true, false);
+
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> service(registry).delete("Baker"));
+
+        assertEquals("Merchant 'Baker' is in an unloaded area of world at 10, 64, -4. Go there and try again.",
+                e.getMessage());
+        assertEquals(List.of("getWorld world", "isChunkLoaded 0, -1", "getChunkAt 0, -1"), serverCalls);
+        assertTrue(registry.isNameTaken("Baker"));
+        assertFalse(dir.resolve("merchants.yml").toFile().exists(), "nothing should be saved");
     }
 }
