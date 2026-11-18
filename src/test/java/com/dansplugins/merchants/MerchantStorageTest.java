@@ -212,6 +212,85 @@ class MerchantStorageTest {
                 warnings);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"    name: [Old, Baker]", "    name:\n      first: Old", "    name: 2026-01-01"})
+    void aRecordWhoseNameIsNotTextIsSkippedNotLoadedGarbled(String nameLine) throws IOException {
+        UUID baker = UUID.randomUUID();
+        UUID notText = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), bakerAnd(baker,
+                "  " + notText + ":",
+                nameLine,
+                "    world: world",
+                "    x: 4.0",
+                "    y: 5.0",
+                "    z: 6.0"), StandardCharsets.UTF_8);
+
+        MerchantRegistry loaded = storage(file).load();
+
+        assertEquals(List.of(new Merchant(baker, "Baker", "world", 1, 2, 3)), loaded.all());
+        assertEquals(List.of("Skipping merchant '" + notText + "' in merchants.yml: 'name' is not text"), warnings);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"    world: [world, world_nether]", "    world:\n      name: world"})
+    void aRecordWhoseWorldIsNotTextIsSkippedNotLoadedGarbled(String worldLine) throws IOException {
+        UUID baker = UUID.randomUUID();
+        UUID notText = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), bakerAnd(baker,
+                "  " + notText + ":",
+                "    name: Fletcher",
+                worldLine,
+                "    x: 4.0",
+                "    y: 5.0",
+                "    z: 6.0"), StandardCharsets.UTF_8);
+
+        MerchantRegistry loaded = storage(file).load();
+
+        assertEquals(List.of(new Merchant(baker, "Baker", "world", 1, 2, 3)), loaded.all());
+        assertEquals(List.of("Skipping merchant '" + notText + "' in merchants.yml: 'world' is not text"), warnings);
+    }
+
+    @Test
+    void savingOverANameThatIsNotTextKeepsACopyOfTheOldFile() throws IOException {
+        File file = dir.resolve("merchants.yml").toFile();
+        String original = String.join("\n",
+                "merchants:",
+                "  " + UUID.randomUUID() + ":",
+                "    name: [Old, Baker]",
+                "    world: world",
+                "    x: 1.0",
+                "    y: 2.0",
+                "    z: 3.0",
+                "");
+        Files.writeString(file.toPath(), original, StandardCharsets.UTF_8);
+        MerchantStorage storage = storage(file);
+
+        storage.save(storage.load());
+
+        assertEquals(1, backups().size());
+        assertEquals(original, Files.readString(backups().get(0), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void scalarNamesAndWorldsWrittenWithoutQuotesStillLoad() throws IOException {
+        UUID id = UUID.randomUUID();
+        File file = dir.resolve("merchants.yml").toFile();
+        Files.writeString(file.toPath(), String.join("\n",
+                "merchants:",
+                "  " + id + ":",
+                "    name: 42",
+                "    world: true",
+                "    x: 1.0",
+                "    y: 2.0",
+                "    z: 3.0",
+                ""), StandardCharsets.UTF_8);
+
+        assertEquals(List.of(new Merchant(id, "42", "true", 1, 2, 3)), storage(file).load().all());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
     @Test
     void aRecordThatIsNotASectionIsSkippedAndTheRestLoad() throws IOException {
         UUID baker = UUID.randomUUID();

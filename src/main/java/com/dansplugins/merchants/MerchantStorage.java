@@ -73,7 +73,7 @@ public final class MerchantStorage {
                 }
                 registry.add(new Merchant(
                         UUID.fromString(id),
-                        section.getString("name"),
+                        text(section, "name"),
                         world(section),
                         coordinate(section, "x"),
                         coordinate(section, "y"),
@@ -91,11 +91,29 @@ public final class MerchantStorage {
      * parameter instead of the key a server owner would need to add.
      */
     private static String world(ConfigurationSection section) {
-        String world = section.getString("world");
+        String world = text(section, "world");
         if (world == null) {
             throw new IllegalArgumentException("'world' is missing");
         }
         return world;
+    }
+
+    /**
+     * Not ConfigurationSection.getString: it turns any value into text, so a list, nested section or
+     * date written under the key would load as a garbled name or world and then be saved over the
+     * original. An unquoted number or boolean is still read as text, as getString would.
+     *
+     * @return the value as text, or null if the key is missing
+     */
+    private static String text(ConfigurationSection section, String key) {
+        Object value = section.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String || value instanceof Number || value instanceof Boolean)) {
+            throw new IllegalArgumentException("'" + key + "' is not text");
+        }
+        return value.toString();
     }
 
     /**
