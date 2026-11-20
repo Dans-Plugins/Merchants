@@ -41,7 +41,8 @@ public final class MerchantCommand implements TabExecutor {
             return true;
         }
         // Merchant names may contain spaces, so everything after the subcommand is the name.
-        String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).strip();
+        // Two spaces in a row arrive as an empty argument; normalizing drops the extra space.
+        String name = Merchant.normalizeName(String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "create" -> create(sender, name);
             case "delete" -> delete(sender, name);

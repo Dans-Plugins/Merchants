@@ -29,6 +29,18 @@ class MerchantRegistryTest {
     }
 
     @Test
+    void namesAreLookedUpIgnoringRepeatedSpaces() {
+        MerchantRegistry registry = new MerchantRegistry();
+        Merchant baker = merchant("Old Baker");
+        registry.add(baker);
+
+        assertSame(baker, registry.getByName("old  baker").orElseThrow());
+        assertTrue(registry.isNameTaken("Old \t Baker"));
+        assertThrows(IllegalArgumentException.class, () -> registry.add(merchant("Old  Baker")));
+        assertSame(baker, registry.remove("OLD   BAKER").orElseThrow());
+    }
+
+    @Test
     void duplicateNameIsRejected() {
         MerchantRegistry registry = new MerchantRegistry();
         registry.add(merchant("Baker"));

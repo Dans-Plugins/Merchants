@@ -16,6 +16,12 @@ class MerchantTest {
     }
 
     @Test
+    void whitespaceInsideANameIsCollapsedToOneSpace() {
+        Merchant merchant = new Merchant(UUID.randomUUID(), " Old  \t Baker ", "world", 1, 2, 3);
+        assertEquals("Old Baker", merchant.name());
+    }
+
+    @Test
     void blankNameIsRejected() {
         assertThrows(IllegalArgumentException.class,
                 () -> new Merchant(UUID.randomUUID(), "   ", "world", 0, 0, 0));
