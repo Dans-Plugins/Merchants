@@ -69,7 +69,7 @@ public final class MerchantService {
             throw new IllegalStateException("The merchant could not be placed here: its villager did not spawn."
                     + " Another plugin may be blocking mob spawns in this area.");
         }
-        makeStationary(villager, name.strip());
+        makeStationary(villager, Merchant.normalizeName(name));
 
         Merchant merchant = new Merchant(villager.getUniqueId(), name, world.getName(),
                 location.getX(), location.getY(), location.getZ());

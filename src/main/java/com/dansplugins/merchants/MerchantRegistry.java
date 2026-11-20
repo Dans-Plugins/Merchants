@@ -62,6 +62,6 @@ public final class MerchantRegistry {
     }
 
     private static String key(String name) {
-        return name.strip().toLowerCase(Locale.ROOT);
+        return Merchant.normalizeName(name).toLowerCase(Locale.ROOT);
     }
 }

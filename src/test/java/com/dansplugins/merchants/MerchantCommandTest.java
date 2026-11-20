@@ -231,6 +231,30 @@ class MerchantCommandTest {
     }
 
     @Test
+    void aNameTypedWithADoubleSpaceIsCreatedAndDeletedWithOneSpace() {
+        UUID villagerId = UUID.randomUUID();
+        Location location = new Location(MerchantServiceTest.world("world", villagerId, new LinkedHashMap<>()),
+                0, 64, 0);
+
+        // Bukkit splits on single spaces, so "Old  Baker" arrives with an empty argument in the middle.
+        run(player(location, MerchantCommand.CREATE_PERMISSION), "create", "Old", "", "Baker");
+        run(sender(MerchantCommand.DELETE_PERMISSION), "delete", "Old", "Baker");
+
+        assertEquals(List.of("Created merchant 'Old Baker'.", "Deleted merchant 'Old Baker'."), messages);
+        assertTrue(registry.all().isEmpty());
+    }
+
+    @Test
+    void createOfANameTakenButForSpacingSaysSo() {
+        registry.add(new Merchant(UUID.randomUUID(), "Old Baker", "world", 0, 64, 0));
+
+        run(player(new Location(null, 0, 64, 0), MerchantCommand.CREATE_PERMISSION), "create", "Old", "", "Baker");
+
+        assertEquals(List.of("A merchant named 'Old Baker' already exists."), messages);
+        assertEquals(1, registry.all().size());
+    }
+
+    @Test
     void deleteOfAnUnknownNameSaysSo() {
         run(sender(MerchantCommand.DELETE_PERMISSION), "delete", "Baker");
         assertEquals(List.of("There is no merchant named 'Baker'."), messages);

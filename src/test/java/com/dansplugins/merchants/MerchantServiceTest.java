@@ -148,6 +148,19 @@ class MerchantServiceTest {
     }
 
     @Test
+    void createNamesTheVillagerWithRepeatedSpacesCollapsed() throws IOException {
+        MerchantRegistry registry = new MerchantRegistry();
+        UUID villagerId = UUID.randomUUID();
+        Map<String, Object> calls = new LinkedHashMap<>();
+        Location location = new Location(world("world", villagerId, calls), 0, 64, 0);
+
+        Merchant merchant = service(registry).create(location, "Old  Baker");
+
+        assertEquals("Old Baker", merchant.name());
+        assertEquals("Old Baker", calls.get("setCustomName"));
+    }
+
+    @Test
     void createThatCannotBeSavedKeepsTheMerchantAndThrows() {
         MerchantRegistry registry = new MerchantRegistry();
         UUID villagerId = UUID.randomUUID();
